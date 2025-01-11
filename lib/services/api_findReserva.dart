@@ -39,7 +39,7 @@ class ApiConsultarReservas {
 
         // Extraer FechaHora_Reserva usando el modelo
         List<String> fechas = responseBody
-            .map<String>((item) => Reserva.fromMap(item).fechaHoraReserva)
+            .map<String>((item) => CitasReservadas.fromMap(item).fechaHoraReserva)
             .where((fecha) => fecha.isNotEmpty)
             .toList();
             print('Fechas extraídas: $fechas'); // Muestra las fechas extraídas
