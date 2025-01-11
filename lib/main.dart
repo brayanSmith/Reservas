@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'services/api_service.dart'; // Asegúrate de importar tu servicio API
+import 'services/api_findReserva.dart'; // Asegúrate de importar tu servicio API
+import 'services/api_addReserva.dart';
 import 'utils/time_utils.dart'; // Asegúrate de importar la función generarHorasDisponibles
 import 'dart:async';
 
@@ -29,7 +30,9 @@ class _TimeSelectionPageState extends State<TimeSelectionPage> {
   String tipoReserva = ''; // Variable para almacenar el tipo de reserva
   String nombre = ''; // Variable para almacenar el nombre del usuario
 
-  final ApiService _apiService = ApiService(); // Instancia de ApiService
+  final ApiConsultarReservas _apiConsultarReservas = ApiConsultarReservas(); // Instancia de ApiConsultarReservas
+  final ApiCrearReserva _apiCrearReserva = ApiCrearReserva();
+
 
   @override
   void initState() {
@@ -46,13 +49,16 @@ class _TimeSelectionPageState extends State<TimeSelectionPage> {
 
   // Método para obtener la fecha en formato MM/DD/YYYY
   String _formatDate(DateTime date) {
-    return '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year}';
+    //return '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year}';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
+
+  
 
   Future<void> _loadFechas() async {
     try {
       // Esperamos la lista de fechas desde la API
-      List<String> fechas = await _apiService.fetchAllFechas();
+      List<String> fechas = await _apiConsultarReservas.fetchAllFechas();
 
       setState(() {
         fechasReservadas = fechas;
@@ -115,52 +121,145 @@ class _TimeSelectionPageState extends State<TimeSelectionPage> {
     });
   }
 
-  // Método para manejar la confirmación de la reserva
-  void _confirmarReserva() {
-    if (selectedDate.isNotEmpty && selectedTime.isNotEmpty && tipoReserva.isNotEmpty && nombre.isNotEmpty) {
-      // Aquí puedes agregar la lógica para confirmar la reserva, por ejemplo, llamar a un servicio API
-      // o mostrar un mensaje con los datos seleccionados
 
-      // En este caso, solo mostramos un diálogo de confirmación
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text("Reserva Confirmada"),
-            content: Text(
-                "Reserva Confirmada:\nNombre: $nombre\nFecha: $selectedDate\nHora: $selectedTime\nTipo: $tipoReserva"),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: Text("Cerrar"),
-              ),
-            ],
-          );
-        },
-      );
-    } else {
-      // Si faltan datos, mostramos un mensaje de error
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text("Error"),
-            content: Text("Por favor, complete todos los campos antes de confirmar."),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: Text("Cerrar"),
-              ),
-            ],
-          );
-        },
-      );
-    }
+
+
+// Método para combinar la fecha y hora seleccionadas en el formato DD/MM/YYYY HH:MM:SS
+String _formatDateTimeForJson(String date, String time) {
+  // Validamos que la fecha esté en formato DD/MM/YYYY antes de usarla
+  List<String> parts = date.split('/');
+  if (parts.length != 3) {
+    throw FormatException("La fecha no tiene el formato correcto DD/MM/YYYY");
   }
+
+  // Agregamos los segundos al tiempo
+  String formattedTime = '${time.padRight(5, '0')}:00';
+  return '$date $formattedTime';
+}
+
+void _confirmarReserva() async {
+  if (selectedDate.isNotEmpty &&
+      selectedTime.isNotEmpty &&
+      tipoReserva.isNotEmpty &&
+      nombre.isNotEmpty) {
+    try {
+      // Construimos la fecha y hora en el formato requerido
+      String fechaHoraReserva = _formatDateTimeForJson(selectedDate, selectedTime);
+
+      // Mostrar diálogo con botones de Confirmar y Modificar
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text("Confirmar Reserva"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Detalles de la reserva:"),
+                SizedBox(height: 10),
+                Text("Nombre: $nombre"),
+                Text("Fecha: $selectedDate"),
+                Text("Hora: $selectedTime"),
+                Text("Tipo: $tipoReserva"),
+              ],
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(context).pop(); // Cerrar el diálogo
+
+                  try {
+                    // Llamamos a la API para crear la reserva
+                    bool success = await _apiCrearReserva.addReserva(
+                      nombre: nombre,
+                      fechaHoraReserva: fechaHoraReserva,
+                      tipoReserva: tipoReserva,
+                      duracion: 30, // Duración fija de 30 minutos
+                    );
+
+                    if (success) {
+                      // Reiniciar los campos después de confirmar la reserva
+                      setState(() {
+                        nombre = '';
+                        selectedDate = _formatDate(DateTime.now());
+                        selectedTime = '';
+                        tipoReserva = '';
+                      });
+
+                      // Mostrar mensaje de éxito
+                      _mostrarDialogoExito();
+                    } else {
+                      _mostrarError("No se pudo crear la reserva. Inténtelo nuevamente.");
+                    }
+                  } catch (e) {
+                    print("Error al crear la reserva: $e");
+                    _mostrarError("Ocurrió un error al crear la reserva. Inténtelo nuevamente.");
+                  }
+                },
+                child: Text("Confirmar datos de reserva"),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); // Cerrar el diálogo y permitir la modificación
+                },
+                child: Text("Modificar"),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      print("Error al preparar la reserva: $e");
+      _mostrarError("Ocurrió un error al preparar la reserva. Inténtelo nuevamente.");
+    }
+  } else {
+    _mostrarError("Por favor, complete todos los campos antes de confirmar.");
+  }
+}
+
+
+void _mostrarDialogoExito() {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text("Reserva Confirmada"),
+        content: Text("Reserva creada exitosamente."),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Cerrar el diálogo
+            },
+            child: Text("Cerrar"),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+
+
+void _mostrarError(String mensaje) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text("Error"),
+        content: Text(mensaje),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: Text("Cerrar"),
+          ),
+        ],
+      );
+    },
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -238,8 +337,9 @@ class _TimeSelectionPageState extends State<TimeSelectionPage> {
               if (tipoReserva.isNotEmpty)
                 Text('Tipo de reserva ingresado: $tipoReserva', style: TextStyle(fontSize: 18)),
               SizedBox(height: 20),
-              if (selectedTime.isNotEmpty)
-                Text('Hora seleccionada: $selectedTime', style: TextStyle(fontSize: 18)),
+              if (selectedTime.isNotEmpty && selectedDate.isNotEmpty)
+              Text('Fecha y hora seleccionada: $selectedDate $selectedTime', style: TextStyle(fontSize: 18)),
+
 
               // El botón para confirmar la reserva
               SizedBox(height: 20),

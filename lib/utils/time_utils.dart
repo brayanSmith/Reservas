@@ -1,7 +1,3 @@
-import 'dart:convert';
-import 'dart:math' as math;
-
-
 List<String>? generarHorasDisponibles(
   int intervaloMinutos,
   String horaEntrada,
@@ -11,6 +7,15 @@ List<String>? generarHorasDisponibles(
   String inicioBreak,
   String finBreak,
 ) {
+  /// Función para convertir fecha de DD/MM/YYYY a MM/DD/YYYY
+  String convertDateToUSFormat(String date) {
+    List<String> parts = date.split('/');
+    return "${parts[1]}/${parts[0]}/${parts[2]}";
+  }
+
+  /// Convertir la fecha de reserva al formato MM/DD/YYYY
+  String fechaReservaUS = convertDateToUSFormat(fechaReserva);
+
   /// MODIFY CODE ONLY BELOW THIS LINE
 
   // Convertir una hora en formato "HH:MM" a minutos desde medianoche
@@ -49,12 +54,12 @@ List<String>? generarHorasDisponibles(
   }
 
   // Filtrar las horas reservadas de acuerdo a la fecha de reserva
-  List<String> filterReservedHours(List<String> allTimes, String fechaReserva,
+  List<String> filterReservedHours(List<String> allTimes, String fechaReservaUS,
       List<String> reservedDatesTimes) {
     List<String> availableTimes = [];
 
     for (String time in allTimes) {
-      String fullDateTime = "$fechaReserva $time";
+      String fullDateTime = "$fechaReservaUS $time";
 
       // Ignorar segundos al comparar
       String formattedDateTime = fullDateTime + ":00"; // Agregar segundos
@@ -92,7 +97,7 @@ List<String>? generarHorasDisponibles(
 
   // Filtramos las horas reservadas para la fecha de reserva
   List<String> availableTimes =
-      filterReservedHours(allTimes, fechaReserva, reservedDatesTimes);
+      filterReservedHours(allTimes, fechaReservaUS, reservedDatesTimes);
 
   // Filtramos las horas dentro del break
   availableTimes = filterBreakHours(availableTimes, inicioBreak, finBreak);
@@ -102,3 +107,17 @@ List<String>? generarHorasDisponibles(
 
   /// MODIFY CODE ONLY ABOVE THIS LINE
 }
+
+/*void main() {
+  List<String>? horasDisponibles = generarHorasDisponibles(
+    30, // Intervalo de 30 minutos
+    "09:00", // Hora de entrada
+    "17:00", // Hora de salida
+    "11/01/2025", // Fecha de reserva en formato DD/MM/YYYY
+    ["01/11/2025 09:30:00", "01/11/2025 16:00:00"], // Reservas
+    "12:00", // Inicio del descanso
+    "13:00", // Fin del descanso
+  );
+
+  print(horasDisponibles);
+}*/
