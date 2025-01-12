@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/api_findReserva.dart'; // Asegúrate de tener este servicio
 import '../services/api_addReserva.dart'; // Asegúrate de tener este servicio
 import '../utils/time_utils.dart'; // Asegúrate de tener la función generarHorasDisponibles
+import '../main.dart';
 
 class TimeSelectionLogic {
   // Lista de horas disponibles para la reserva
@@ -21,7 +23,7 @@ class TimeSelectionLogic {
   final ApiConsultarReservas _apiConsultarReservas = ApiConsultarReservas();
   final ApiCrearReserva _apiCrearReserva = ApiCrearReserva();
 
-  // Callback para actualizar la UI cuando los datos cambien
+  // Callback para actualizar la UI cuando los datos cambian
   Function()? onDataUpdated;
 
   // Inicializa los datos y establece la fecha inicial y carga las fechas reservadas
@@ -110,99 +112,85 @@ class TimeSelectionLogic {
 
   // Llama al servicio para confirmar la reserva
   void confirmarReserva(BuildContext context) async {
-    if (selectedDate.isNotEmpty && selectedTime.isNotEmpty && tipoReserva.isNotEmpty && nombre.isNotEmpty) {
-      try {
-        // Formatea la fecha y hora para la reserva
-        String fechaHoraReserva = _formatDateTimeForJson(selectedDate, selectedTime);
+  if (selectedDate.isNotEmpty && selectedTime.isNotEmpty && tipoReserva.isNotEmpty && nombre.isNotEmpty) {
+    try {
+      // Formatea la fecha y hora para la reserva
+      String fechaHoraReserva = _formatDateTimeForJson(selectedDate, selectedTime);
 
-        // Muestra un diálogo de confirmación de reserva
-        showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: Text("Confirmar Reserva"),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Detalles de la reserva:"),
-                  SizedBox(height: 10),
-                  Text("Nombre: $nombre"),
-                  Text("Fecha: $selectedDate"),
-                  Text("Hora: $selectedTime"),
-                  Text("Tipo: $tipoReserva"),
-                ],
-              ),
-              actions: <Widget>[
-                // Si se confirma, crea la reserva y limpia los campos
-                TextButton(
-                  onPressed: () async {
-                    Navigator.of(context).pop();
-                    try {
-                      bool success = await _apiCrearReserva.addReserva(
-                        nombre: nombre,
-                        fechaHoraReserva: fechaHoraReserva,
-                        tipoReserva: tipoReserva,
-                        duracion: 30,
-                      );
-                      if (success) {
-                        // Limpia los campos después de la reserva exitosa
-                        selectedDate = _formatDate(DateTime.now());
-                        selectedTime = '';
-                        tipoReserva = '';
-                        nombre = '';
-                        _updateUI();
-                        _mostrarDialogoExito(context); // Muestra el diálogo de éxito
-                      } else {
-                        _mostrarError(context, "No se pudo crear la reserva.");
-                      }
-                    } catch (e) {
-                      print("Error al crear la reserva: $e");
-                      _mostrarError(context, "Error al crear la reserva.");
-                    }
-                  },
-                  child: Text("Confirmar datos de reserva"),
-                ),
-                // Si el usuario no confirma, puede modificar la reserva
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: Text("Modificar"),
-                ),
-              ],
-            );
-          },
-        );
-      } catch (e) {
-        print("Error al preparar la reserva: $e");
-        _mostrarError(context, "Error al preparar la reserva.");
+      // Imprime los datos en formato JSON para verificar
+      Map<String, dynamic> reservaJson = {
+        'nombre': nombre,
+        'fechaHoraReserva': fechaHoraReserva,
+        'tipoReserva': tipoReserva,
+        'duracion': 30
+      };
+
+      print("Datos de reserva en formato JSON: ${reservaJson}");
+
+      // Realiza la confirmación de la reserva llamando al servicio
+      bool success = await _apiCrearReserva.addReserva(
+        nombre: nombre,
+        fechaHoraReserva: fechaHoraReserva,
+        tipoReserva: tipoReserva,
+        duracion: 30,
+      );
+
+      if (success) {
+        // Almacenar los datos antes de limpiarlos
+        String tempNombre = nombre;
+        String tempFecha = selectedDate;
+        String tempHora = selectedTime;
+        String tempTipoReserva = tipoReserva;
+
+        // Limpia los campos después de la reserva exitosa
+        selectedDate = _formatDate(DateTime.now());
+        selectedTime = '';
+        tipoReserva = '';
+        nombre = '';
+        _updateUI();
+
+        // Mostrar el diálogo de éxito y luego enviar los datos a WhatsApp
+        _mostrarDialogoExito(context, tempNombre, tempFecha, tempHora, tempTipoReserva); 
+      } else {
+        _mostrarError(context, "No se pudo crear la reserva.");
       }
-    } else {
-      _mostrarError(context, "Por favor, complete todos los campos.");
+    } catch (e) {
+      print("Error al crear la reserva: $e");
+      _mostrarError(context, "Error al crear la reserva.");
     }
+  } else {
+    _mostrarError(context, "Por favor, complete todos los campos.");
   }
+}
 
-  // Muestra un diálogo de éxito cuando la reserva se confirma correctamente
-  void _mostrarDialogoExito(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text("Reserva Confirmada"),
-          content: Text("Reserva creada exitosamente."),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text("Cerrar"),
-            ),
-          ],
-        );
-      },
-    );
-  }
+// Muestra un diálogo de éxito cuando la reserva se confirma correctamente
+void _mostrarDialogoExito(BuildContext context, String nombre, String fecha, String hora, String tipoReserva) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text("Reserva Confirmada"),
+        content: Text("Reserva creada exitosamente."),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Cierra el diálogo
+              _enviarDatosWhatsapp(nombre, fecha, hora, tipoReserva); // Redirige a WhatsApp con los datos correctos
+              // Redirige al Main (o a la pantalla principal)
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => MyApp()), // Aquí usas tu widget principal (MainPage)
+              );
+            },
+            child: Text("Abrir WhatsApp"),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+
 
   // Muestra un diálogo de error si ocurre algún problema
   void _mostrarError(BuildContext context, String mensaje) {
@@ -224,6 +212,30 @@ class TimeSelectionLogic {
       },
     );
   }
+
+// Función que abre WhatsApp con los datos de la reserva
+void _enviarDatosWhatsapp(String nombre, String fecha, String hora, String tipoReserva) async {
+  // Mensaje con los mismos datos utilizados en la API
+  final String message = "Hola, quiero realizar una reserva:\n\n"
+      "Nombre: $nombre\n"
+      "Fecha: $fecha\n"
+      "Hora: $hora\n"
+      "Tipo de Reserva: $tipoReserva";
+
+  // Formateo de la URL para WhatsApp
+  final String whatsappUrl = "https://wa.me/573203867042?text=${Uri.encodeComponent(message)}";
+
+  try {
+    if (await canLaunch(whatsappUrl)) {
+      await launch(whatsappUrl); // Abre WhatsApp con los datos
+    } else {
+      throw 'No se pudo abrir WhatsApp';
+    }
+  } catch (e) {
+    print('Error al intentar abrir WhatsApp: $e');
+  }
+}
+
 
   // Llama al callback para actualizar la UI cuando los datos cambian
   void _updateUI() {

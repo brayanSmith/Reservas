@@ -51,7 +51,7 @@ ThemeData appTheme() {
     // Estilo global para campos de texto (TextField)
     inputDecorationTheme: InputDecorationTheme(
       filled: true, // Campo relleno con color
-      fillColor: Colors.grey.shade200, // Color de fondo gris claro para campos de texto
+      fillColor: const Color.fromARGB(255, 255, 255, 255), // Color de fondo gris claro para campos de texto
       hintStyle: TextStyle(
         color: Colors.grey.shade500, // Hint text en gris claro
         fontSize: 16, // Tamaño de fuente para el hint text
